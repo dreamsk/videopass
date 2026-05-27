@@ -27,8 +27,8 @@ RUN npm config set registry https://registry.npmmirror.com
 # 复制 package.json（利用 Docker 缓存层）
 COPY package.json package-lock.json* ./
 
-# 安装所有依赖（包括构建所需的 devDependencies）
-RUN npm install
+# 安装所有依赖（跳过 postinstall，yt-dlp 已通过 pip 安装）
+RUN npm install --ignore-scripts
 
 # 复制项目文件
 COPY . .
