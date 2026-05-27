@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  videopass:
+    build: .
+    container_name: videopass
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - YT_DLP_PATH=/usr/local/bin/yt-dlp
+    restart: unless-stopped
+    volumes:
+      # 持久化临时文件目录（可选）
+      - videopass-tmp:/tmp
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    # 资源限制（可选）
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '1.0'
+
+volumes:
+  videopass-tmp:
