@@ -289,17 +289,27 @@ async function getDouyinPlayUrl(url: string): Promise<string> {
   return item.video.play_addr.url_list[0];
 }
 
-// Build yt-dlp args, adding cookies for Douyin
+// Build yt-dlp args, adding cookies for Douyin and Bilibili
 async function buildYtdlpArgs(
   baseArgs: string[],
   url: string
 ): Promise<string[]> {
+  // Douyin cookies
   if (isDouyinUrl(url)) {
     const cookiePath = await getDouyinCookies();
     if (cookiePath) {
       return [...baseArgs, "--cookies", cookiePath];
     }
   }
+
+  // Bilibili cookies (from environment variable or default path)
+  if (/bilibili\.com|b23\.tv/.test(url)) {
+    const bilibiliCookiePath = process.env.BILIBILI_COOKIES_PATH || "/app/cookies.txt";
+    if (fs.existsSync(bilibiliCookiePath)) {
+      return [...baseArgs, "--cookies", bilibiliCookiePath];
+    }
+  }
+
   return baseArgs;
 }
 
