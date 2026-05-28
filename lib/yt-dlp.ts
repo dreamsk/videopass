@@ -697,10 +697,10 @@ export async function downloadDouyinToFile(url: string): Promise<{ filePath: str
   return { filePath: outputPath, cleanup };
 }
 
-export function getVideoStream(
+export async function getVideoStream(
   url: string,
   formatId: string
-): { stream: Readable; cleanup: () => void } {
+): Promise<{ stream: Readable; cleanup: () => void }> {
   const normalizedUrl = normalizeDouyinUrl(url);
 
   // Douyin: download via mobile API
@@ -720,8 +720,9 @@ export function getVideoStream(
     "--no-warnings",
     normalizedUrl,
   ];
+  const args = await buildYtdlpArgs(baseArgs, normalizedUrl);
 
-  const proc = spawn(YT_DLP_PATH, baseArgs);
+  const proc = spawn(YT_DLP_PATH, args);
 
   let fileStream: fs.ReadStream | null = null;
 

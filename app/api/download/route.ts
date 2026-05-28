@@ -49,7 +49,7 @@ export async function POST(request: Request) {
     }
 
     // Other platforms: stream via yt-dlp
-    const { stream: nodeStream, cleanup } = getVideoStream(url, format_id);
+    const { stream: nodeStream, cleanup } = await getVideoStream(url, format_id);
 
     const webStream = new ReadableStream({
       start(controller) {
