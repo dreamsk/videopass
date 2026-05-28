@@ -139,10 +139,17 @@ export async function downloadWithProgress(
 
   proc.stderr!.on("data", (chunk: Buffer) => {
     stderrBuffer += chunk.toString();
-    const lines = stderrBuffer.split("\n");
+    // yt-dlp uses \r to update progress on the same line
+    const lines = stderrBuffer.split(/\r\n|\r|\n/);
     stderrBuffer = lines.pop()!;
     for (const line of lines) {
-      parseProgressLine(line, downloadId);
+      if (line.trim()) {
+        parseProgressLine(line, downloadId);
+      }
+    }
+    // Also try to parse the buffer in case it has complete progress info
+    if (stderrBuffer.trim()) {
+      parseProgressLine(stderrBuffer, downloadId);
     }
   });
 
