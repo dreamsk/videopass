@@ -114,3 +114,17 @@ export type ErrorCode =
   | "INTERNAL_ERROR";
 
 export type ApiResponse = ExtractResponse | ApiError;
+
+// Download progress types
+export interface DownloadProgress {
+  percent: number;
+  speed: string;
+  eta: string;
+  status: "downloading" | "merging" | "complete" | "error";
+  error?: string;
+}
+
+export interface DownloadStartResponse {
+  success: true;
+  downloadId: string;
+}

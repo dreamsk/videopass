@@ -8,21 +8,19 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { useState } from "react";
-import { Loader2, Download, Clock, User, ImageDown, Play } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { Loader2, Download, Clock, User, ImageDown, Play, X, Check } from "lucide-react";
 import { FormatSelector } from "./format-selector";
 import { VideoPlayer } from "./video-player";
 import { formatDuration, sanitizeFilename } from "@/lib/utils";
 import { getPlatformInfo } from "@/lib/platforms";
-import type { VideoInfo } from "@/lib/types";
+import type { VideoInfo, DownloadProgress } from "@/lib/types";
 
 interface VideoCardProps {
   video: VideoInfo;
   sourceUrl: string;
   selectedFormat: string | null;
   onFormatChange: (id: string) => void;
-  onDownload: () => void;
-  isDownloading: boolean;
 }
 
 export function VideoCard({
@@ -30,13 +28,130 @@ export function VideoCard({
   sourceUrl,
   selectedFormat,
   onFormatChange,
-  onDownload,
-  isDownloading,
 }: VideoCardProps) {
   const platformInfo = getPlatformInfo(video.platform);
   const [isSavingCover, setIsSavingCover] = useState(false);
   const [streamSrc, setStreamSrc] = useState<string | null>(null);
   const [isPreparingPlay, setIsPreparingPlay] = useState(false);
+
+  // Download progress state
+  const [downloadProgress, setDownloadProgress] = useState<DownloadProgress | null>(null);
+  const eventSourceRef = useRef<EventSource | null>(null);
+
+  // Cleanup EventSource on unmount
+  useEffect(() => {
+    return () => {
+      eventSourceRef.current?.close();
+    };
+  }, []);
+
+  const handleDownload = async () => {
+    if (!selectedFormat) return;
+
+    try {
+      const res = await fetch("/api/download", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          url: sourceUrl,
+          format_id: selectedFormat,
+          filename: video.title,
+        }),
+      });
+
+      const data = await res.json();
+      if (!data.success) {
+        setDownloadProgress({
+          percent: 0,
+          speed: "",
+          eta: "",
+          status: "error",
+          error: data.error,
+        });
+        return;
+      }
+
+      const { downloadId } = data;
+      setDownloadProgress({
+        percent: 0,
+        speed: "",
+        eta: "",
+        status: "downloading",
+      });
+
+      // Open SSE connection for progress
+      const eventSource = new EventSource(`/api/download/progress?id=${downloadId}`);
+      eventSourceRef.current = eventSource;
+
+      eventSource.addEventListener("progress", (event) => {
+        const progress = JSON.parse(event.data) as DownloadProgress;
+        setDownloadProgress(progress);
+      });
+
+      eventSource.addEventListener("complete", () => {
+        eventSource.close();
+        eventSourceRef.current = null;
+        setDownloadProgress({
+          percent: 100,
+          speed: "",
+          eta: "",
+          status: "complete",
+        });
+
+        // Trigger browser download
+        const a = document.createElement("a");
+        a.href = `/api/download/file?id=${downloadId}`;
+        a.download = `${video.title}.mp4`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+
+        // Reset after a brief delay
+        setTimeout(() => setDownloadProgress(null), 2000);
+      });
+
+      eventSource.addEventListener("error", (event) => {
+        eventSource.close();
+        eventSourceRef.current = null;
+        const data = (event as MessageEvent).data;
+        setDownloadProgress({
+          percent: 0,
+          speed: "",
+          eta: "",
+          status: "error",
+          error: data ? JSON.parse(data).error : "连接中断",
+        });
+      });
+
+      eventSource.onerror = () => {
+        eventSource.close();
+        eventSourceRef.current = null;
+        if (downloadProgress?.status === "downloading") {
+          setDownloadProgress({
+            percent: 0,
+            speed: "",
+            eta: "",
+            status: "error",
+            error: "连接中断",
+          });
+        }
+      };
+    } catch {
+      setDownloadProgress({
+        percent: 0,
+        speed: "",
+        eta: "",
+        status: "error",
+        error: "网络错误",
+      });
+    }
+  };
+
+  const handleCancelDownload = () => {
+    eventSourceRef.current?.close();
+    eventSourceRef.current = null;
+    setDownloadProgress(null);
+  };
 
   const handlePlay = async () => {
     if (!selectedFormat) return;
@@ -80,6 +195,10 @@ export function VideoCard({
       setIsSavingCover(false);
     }
   };
+
+  const isDownloading = downloadProgress !== null && downloadProgress.status !== "complete";
+  const isError = downloadProgress?.status === "error";
+  const isComplete = downloadProgress?.status === "complete";
 
   return (
     <Card className="overflow-hidden">
@@ -157,24 +276,88 @@ export function VideoCard({
       </CardContent>
 
       <CardFooter className="p-4 pt-0">
-        <Button
-          onClick={onDownload}
-          disabled={!selectedFormat || isDownloading}
-          className="w-full h-11"
-          size="lg"
-        >
-          {isDownloading ? (
-            <>
-              <Loader2 className="w-4 h-4 animate-spin mr-2" />
-              下载中...
-            </>
-          ) : (
-            <>
-              <Download className="w-4 h-4 mr-2" />
-              下载视频
-            </>
-          )}
-        </Button>
+        {isDownloading ? (
+          <div className="w-full space-y-2">
+            {downloadProgress.status === "merging" ? (
+              <>
+                <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
+                  <div className="h-full bg-primary rounded-full w-full animate-pulse" />
+                </div>
+                <div className="flex items-center justify-between text-sm text-muted-foreground">
+                  <span>正在合并视频和音频...</span>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-6 w-6"
+                    onClick={handleCancelDownload}
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-primary rounded-full transition-all duration-300"
+                    style={{ width: `${downloadProgress.percent}%` }}
+                  />
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">
+                    {downloadProgress.percent.toFixed(1)}%
+                  </span>
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    {downloadProgress.speed && (
+                      <span>↓ {downloadProgress.speed}</span>
+                    )}
+                    {downloadProgress.eta && downloadProgress.eta !== "Unknown" && (
+                      <span>ETA {downloadProgress.eta}</span>
+                    )}
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-6 w-6"
+                      onClick={handleCancelDownload}
+                    >
+                      <X className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        ) : isError ? (
+          <div className="w-full space-y-2">
+            <p className="text-sm text-destructive">{downloadProgress?.error}</p>
+            <Button
+              onClick={() => setDownloadProgress(null)}
+              variant="outline"
+              className="w-full h-11"
+            >
+              重试
+            </Button>
+          </div>
+        ) : (
+          <Button
+            onClick={handleDownload}
+            disabled={!selectedFormat || isComplete}
+            className="w-full h-11"
+            size="lg"
+          >
+            {isComplete ? (
+              <>
+                <Check className="w-4 h-4 mr-2" />
+                下载完成
+              </>
+            ) : (
+              <>
+                <Download className="w-4 h-4 mr-2" />
+                下载视频
+              </>
+            )}
+          </Button>
+        )}
       </CardFooter>
     </Card>
   );

@@ -1,5 +1,6 @@
 import { execFile, spawn } from "node:child_process";
 import { Readable } from "node:stream";
+import { EventEmitter } from "node:events";
 import path from "node:path";
 import fs from "node:fs";
 import os from "node:os";
@@ -12,6 +13,7 @@ import type {
   VideoFormat,
   VideoInfo,
   QualityLabel,
+  DownloadProgress,
 } from "./types";
 
 const YT_DLP_PATH = process.env.YT_DLP_PATH || (
@@ -19,6 +21,198 @@ const YT_DLP_PATH = process.env.YT_DLP_PATH || (
     ? path.join(process.cwd(), "node_modules", "youtube-dl-exec", "bin", "yt-dlp.exe")
     : "yt-dlp"
 );
+
+// Download progress tracking
+interface DownloadEntry {
+  progress: DownloadProgress;
+  filePath?: string;
+  filename?: string;
+  timer?: ReturnType<typeof setTimeout>;
+}
+
+const downloadStore = new Map<string, DownloadEntry>();
+const downloadEvents = new EventEmitter();
+
+function parseProgressLine(line: string, downloadId: string): void {
+  const entry = downloadStore.get(downloadId);
+  if (!entry) return;
+
+  // [download]  52.3% of   10.23MiB at    3.12MiB/s ETA 00:01
+  const progressMatch = line.match(
+    /\[download\]\s+([\d.]+)%\s+of\s+~?([\d.]+\w+)\s+at\s+([\d.]+\S+)\s+ETA\s+(\S+)/
+  );
+  if (progressMatch) {
+    entry.progress = {
+      percent: parseFloat(progressMatch[1]),
+      speed: progressMatch[3],
+      eta: progressMatch[4],
+      status: "downloading",
+    };
+    downloadEvents.emit(downloadId, entry.progress);
+    return;
+  }
+
+  // [Merger] Merging formats into "..."
+  if (line.includes("[Merger] Merging formats")) {
+    entry.progress = {
+      ...entry.progress,
+      percent: 100,
+      status: "merging",
+    };
+    downloadEvents.emit(downloadId, entry.progress);
+    return;
+  }
+
+  // ERROR: ...
+  if (line.startsWith("ERROR:") || line.startsWith("ERROR:")) {
+    entry.progress = {
+      percent: 0,
+      speed: "",
+      eta: "",
+      status: "error",
+      error: line.replace(/^ERROR:\s*/, ""),
+    };
+    downloadEvents.emit(downloadId, entry.progress);
+  }
+}
+
+export async function downloadWithProgress(
+  url: string,
+  formatId: string,
+  filename?: string
+): Promise<string> {
+  const normalizedUrl = normalizeDouyinUrl(url);
+  const downloadId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "videopass-dl-"));
+  const outputPath = path.join(tmpDir, "video.mp4");
+
+  // Initialize download entry
+  downloadStore.set(downloadId, {
+    progress: { percent: 0, speed: "", eta: "", status: "downloading" },
+    filename,
+  });
+
+  // Douyin: use direct HTTP download (no yt-dlp progress)
+  if (isDouyinUrl(normalizedUrl)) {
+    const entry = downloadStore.get(downloadId)!;
+    entry.progress = { percent: 0, speed: "", eta: "", status: "downloading" };
+    downloadEvents.emit(downloadId, entry.progress);
+
+    try {
+      const { filePath, cleanup } = await downloadDouyinToFile(url);
+      entry.filePath = filePath;
+      entry.progress = { percent: 100, speed: "", eta: "", status: "complete" };
+      downloadEvents.emit(downloadId, entry.progress);
+
+      // Schedule cleanup after 5 minutes
+      entry.timer = setTimeout(() => {
+        fs.rmSync(filePath, { force: true });
+        downloadStore.delete(downloadId);
+      }, 5 * 60 * 1000);
+    } catch (err) {
+      entry.progress = {
+        percent: 0,
+        speed: "",
+        eta: "",
+        status: "error",
+        error: err instanceof Error ? err.message : String(err),
+      };
+      downloadEvents.emit(downloadId, entry.progress);
+    }
+    return downloadId;
+  }
+
+  // Other platforms: use yt-dlp with progress tracking
+  const formatSelector = qualityToFormatSelector(formatId as QualityLabel);
+  const baseArgs = [
+    "-f", formatSelector,
+    "--merge-output-format", "mp4",
+    "-o", outputPath,
+    "--no-check-certificates",
+    "--no-warnings",
+    normalizedUrl,
+  ];
+  const args = await buildYtdlpArgs(baseArgs, normalizedUrl);
+
+  const proc = spawn(YT_DLP_PATH, args);
+  let stderrBuffer = "";
+
+  proc.stderr!.on("data", (chunk: Buffer) => {
+    stderrBuffer += chunk.toString();
+    const lines = stderrBuffer.split("\n");
+    stderrBuffer = lines.pop()!;
+    for (const line of lines) {
+      parseProgressLine(line, downloadId);
+    }
+  });
+
+  proc.on("close", (code) => {
+    const entry = downloadStore.get(downloadId);
+    if (!entry) return;
+
+    if (code !== 0) {
+      entry.progress = {
+        percent: 0,
+        speed: "",
+        eta: "",
+        status: "error",
+        error: `yt-dlp exited with code ${code}`,
+      };
+      downloadEvents.emit(downloadId, entry.progress);
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+      return;
+    }
+
+    entry.filePath = outputPath;
+    entry.progress = { percent: 100, speed: "", eta: "", status: "complete" };
+    downloadEvents.emit(downloadId, entry.progress);
+
+    // Schedule cleanup after 5 minutes
+    entry.timer = setTimeout(() => {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+      downloadStore.delete(downloadId);
+    }, 5 * 60 * 1000);
+  });
+
+  proc.on("error", (err) => {
+    const entry = downloadStore.get(downloadId);
+    if (!entry) return;
+
+    entry.progress = {
+      percent: 0,
+      speed: "",
+      eta: "",
+      status: "error",
+      error: err.message,
+    };
+    downloadEvents.emit(downloadId, entry.progress);
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  return downloadId;
+}
+
+export function getDownloadProgress(downloadId: string): DownloadProgress | null {
+  return downloadStore.get(downloadId)?.progress ?? null;
+}
+
+export function getDownloadFilePath(downloadId: string): string | null {
+  const entry = downloadStore.get(downloadId);
+  if (!entry?.filePath || !fs.existsSync(entry.filePath)) return null;
+  return entry.filePath;
+}
+
+export function getDownloadFilename(downloadId: string): string | null {
+  return downloadStore.get(downloadId)?.filename ?? null;
+}
+
+export function onDownloadEvent(
+  downloadId: string,
+  listener: (progress: DownloadProgress) => void
+): () => void {
+  downloadEvents.on(downloadId, listener);
+  return () => downloadEvents.off(downloadId, listener);
+}
 
 function runYtdlp(args: string[]): Promise<string> {
   return new Promise((resolve, reject) => {

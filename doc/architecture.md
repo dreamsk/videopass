@@ -51,7 +51,11 @@ d:/VideoPass/
 │       ├── extract/
 │       │   └── route.ts            # POST: URL -> 视频元数据 JSON
 │       ├── download/
-│       │   └── route.ts            # POST: URL + format_id -> 流式下载
+│       │   ├── route.ts            # POST: URL + format_id -> 返回 downloadId
+│       │   ├── progress/
+│       │   │   └── route.ts        # GET: id -> SSE 进度推送
+│       │   └── file/
+│       │       └── route.ts        # GET: id -> 文件下载
 │       ├── thumbnail/
 │       │   └── route.ts            # GET: url -> 代理封面图（解决 403）
 │       └── stream/
@@ -123,16 +127,40 @@ d:/VideoPass/
 
 ### 3.2 下载接口
 
-**POST** `/api/download`
+下载采用三步流程：启动下载 → 监听进度 → 获取文件。
+
+**POST** `/api/download` - 启动下载
 
 请求体：
 ```typescript
 { url: string, format_id: string, filename?: string }
 ```
 
+成功响应 (200)：
+```typescript
+{ success: true, downloadId: string }
+```
+
+**GET** `/api/download/progress?id=<download_id>` - SSE 进度推送
+
+响应：Server-Sent Events
+```
+event: progress
+data: {"percent":52.3,"speed":"3.12MiB/s","eta":"00:01","status":"downloading"}
+
+event: complete
+data: {"downloadId":"xxx"}
+
+event: error
+data: {"error":"错误信息"}
+```
+
+**GET** `/api/download/file?id=<download_id>` - 获取文件
+
 响应：二进制流（已合并视频+音频）
-- `Content-Type: application/octet-stream`
+- `Content-Type: video/mp4`
 - `Content-Disposition: attachment; filename="..."; filename*=UTF-8''...`
+- 支持 Range 请求
 
 ### 3.3 封面图代理接口
 
@@ -190,18 +218,21 @@ execFile 执行 yt-dlp --dump-single-json
 ```
 用户选择画质，点击下载
     ↓
-前端 POST /api/download { url, format_id }
+前端 POST /api/download { url, format_id, filename }
     ↓
-qualityToFormatSelector() 将画质标签转为合并选择器
-如 "1080p" -> "bestvideo[height<=1080]+bestaudio/bestvideo+bestaudio/best"
+后端 spawn yt-dlp，返回 downloadId
     ↓
-yt-dlp + ffmpeg 下载到临时目录，自动合并视频+音频流
+前端打开 EventSource: /api/download/progress?id=xxx
     ↓
-合并完成后，fs.createReadStream 流式返回
+yt-dlp stderr 解析进度，通过 SSE 实时推送
     ↓
-前端创建 Blob，触发浏览器下载
+前端显示进度条（百分比、速度、ETA）
     ↓
-临时文件自动清理
+下载完成 → 前端 GET /api/download/file?id=xxx
+    ↓
+浏览器触发下载
+    ↓
+临时文件 5 分钟后自动清理
 ```
 
 ### 4.3 在线播放流程
@@ -247,6 +278,8 @@ yt-dlp + ffmpeg 下载合并到临时文件
 | 下载到临时文件再流式传输 | yt-dlp + ffmpeg 合并需要文件系统操作，不能直接 pipe |
 | 画质标签作为 format_id | 下载时动态生成合并选择器，无需维护 format ID 映射 |
 | 流式下载而非完整缓冲 | 避免大文件（数 GB）导致服务器内存溢出 |
+| SSE 实现下载进度 | 单向推送、无需新依赖、与现有两步模式一致 |
+| 下载状态存储在内存 Map | 支持并发下载，配合 EventEmitter 实现实时推送 |
 | child_process 直接调用 yt-dlp | youtube-dl-exec 的 tinyspawn 在 Turbopack 下不兼容 |
 | 暗色主题为默认 | 媒体工具惯例，减少用户配置 |
 | 格式按画质去重 | yt-dlp 返回大量重复格式，需清洗后展示给用户 |

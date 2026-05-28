@@ -20,7 +20,6 @@ interface VideoEntry {
   video: VideoInfo;
   sourceUrl: string;
   selectedFormat: string | null;
-  isDownloading: boolean;
 }
 
 interface ErrorEntry {
@@ -52,7 +51,6 @@ export default function Home() {
         entry.video.formats.length > 0
           ? entry.video.formats[0].format_id
           : null,
-      isDownloading: false,
     };
     setVideos([videoEntry]);
     setStatus("result");
@@ -91,7 +89,6 @@ export default function Home() {
             data.data.formats.length > 0
               ? data.data.formats[0].format_id
               : null,
-          isDownloading: false,
         };
         setVideos([entry]);
         setStatus("result");
@@ -135,7 +132,6 @@ export default function Home() {
               data.data.formats.length > 0
                 ? data.data.formats[0].format_id
                 : null,
-            isDownloading: false,
           });
           addHistory(data.data, urls[i]);
         } else {
@@ -161,53 +157,6 @@ export default function Home() {
         return { ...entry, selectedFormat: formatId };
       })
     );
-  };
-
-  const handleDownload = async (index: number) => {
-    const entry = videos[index];
-    if (!("video" in entry) || !entry.selectedFormat) return;
-
-    setVideos((prev) =>
-      prev.map((e, i) =>
-        i === index && "video" in e ? { ...e, isDownloading: true } : e
-      )
-    );
-
-    try {
-      const res = await fetch("/api/download", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          url: entry.sourceUrl,
-          format_id: entry.selectedFormat,
-          filename: entry.video.title,
-        }),
-      });
-
-      if (!res.ok) {
-        const err = await res.json();
-        setError(err.error || "下载失败");
-        return;
-      }
-
-      const blob = await res.blob();
-      const objectUrl = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = objectUrl;
-      a.download = `${entry.video.title}.mp4`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(objectUrl);
-    } catch {
-      setError("下载失败，请稍后重试");
-    } finally {
-      setVideos((prev) =>
-        prev.map((e, i) =>
-          i === index && "video" in e ? { ...e, isDownloading: false } : e
-        )
-      );
-    }
   };
 
   return (
@@ -255,8 +204,6 @@ export default function Home() {
                   sourceUrl={entry.sourceUrl}
                   selectedFormat={entry.selectedFormat}
                   onFormatChange={(id) => handleFormatChange(index, id)}
-                  onDownload={() => handleDownload(index)}
-                  isDownloading={entry.isDownloading}
                 />
               ) : (
                 <div
