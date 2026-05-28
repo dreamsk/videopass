@@ -25,14 +25,14 @@ const platforms = [
 
 export function PlatformLogos() {
   return (
-    <div className="flex flex-wrap justify-center gap-4 mt-4">
+    <div className="flex flex-wrap justify-center gap-5 mt-5">
       {platforms.map(({ name, icon: Icon }) => (
         <div
           key={name}
-          className="flex flex-col items-center gap-1 text-muted-foreground"
+          className="flex flex-col items-center gap-1.5 text-muted-foreground/60 hover:text-primary transition-all duration-300 group"
         >
-          <Icon className="w-5 h-5" />
-          <span className="text-xs">{name}</span>
+          <Icon className="w-5 h-5 group-hover:icon-glow transition-all duration-300" />
+          <span className="text-xs font-heading tracking-wider">{name}</span>
         </div>
       ))}
     </div>

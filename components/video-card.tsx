@@ -201,7 +201,7 @@ export function VideoCard({
   const isComplete = downloadProgress?.status === "complete";
 
   return (
-    <Card className="overflow-hidden">
+    <Card className="overflow-hidden glass-card glow-border">
       {streamSrc ? (
         <VideoPlayer src={streamSrc} />
       ) : (
@@ -211,11 +211,12 @@ export function VideoCard({
             alt={video.title}
             className="w-full aspect-video object-cover"
           />
-          <Badge className="absolute top-3 left-3">
+          <div className="absolute inset-0 bg-gradient-to-t from-background/50 to-transparent pointer-events-none" />
+          <Badge className="absolute top-3 left-3 border-primary/30">
             <Clock className="w-3 h-3 mr-1" />
             {formatDuration(video.duration)}
           </Badge>
-          <Badge variant="secondary" className="absolute top-3 right-3">
+          <Badge variant="secondary" className="absolute top-3 right-3 border-primary/30">
             {platformInfo.name}
           </Badge>
           {/* Play button overlay */}
@@ -226,9 +227,16 @@ export function VideoCard({
             title="在线播放"
           >
             {isPreparingPlay ? (
-              <Loader2 className="w-14 h-14 text-white animate-spin" />
+              <Loader2 className="w-14 h-14 text-primary animate-spin" />
             ) : (
-              <div className="w-16 h-16 rounded-full bg-black/50 flex items-center justify-center hover:bg-black/70 transition-colors">
+              <div
+                className="w-16 h-16 rounded-full flex items-center justify-center hover:scale-110 transition-transform"
+                style={{
+                  background: 'rgba(var(--glow-cyan-rgb), 0.2)',
+                  border: '1px solid rgba(var(--glow-cyan-rgb), 0.4)',
+                  boxShadow: '0 0 20px rgba(var(--glow-cyan-rgb), 0.3)',
+                }}
+              >
                 <Play className="w-8 h-8 text-white ml-1" fill="white" />
               </div>
             )}
@@ -255,7 +263,7 @@ export function VideoCard({
       )}
 
       <CardContent className="p-4 space-y-3">
-        <h3 className="font-semibold text-lg line-clamp-2 leading-snug">
+        <h3 className="font-semibold text-lg line-clamp-2 leading-snug text-gradient">
           {video.title}
         </h3>
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -266,7 +274,7 @@ export function VideoCard({
         <Separator />
 
         <div className="space-y-2">
-          <p className="text-sm font-medium">选择画质</p>
+          <p className="text-sm font-medium text-muted-foreground">选择画质</p>
           <FormatSelector
             formats={video.formats}
             selected={selectedFormat}
@@ -280,8 +288,15 @@ export function VideoCard({
           <div className="w-full space-y-2">
             {downloadProgress.status === "merging" ? (
               <>
-                <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
-                  <div className="h-full bg-primary rounded-full w-full animate-pulse" />
+                <div className="w-full h-2 bg-muted/50 rounded-full overflow-hidden">
+                  <div
+                    className="h-full rounded-full w-full"
+                    style={{
+                      background: 'linear-gradient(90deg, var(--glow-cyan), var(--glow-purple))',
+                      boxShadow: '0 0 10px rgba(var(--glow-cyan-rgb), 0.5)',
+                      animation: 'pulse-glow 1.5s ease-in-out infinite',
+                    }}
+                  />
                 </div>
                 <div className="flex items-center justify-between text-sm text-muted-foreground">
                   <span>正在合并视频和音频...</span>
@@ -297,11 +312,23 @@ export function VideoCard({
               </>
             ) : (
               <>
-                <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
+                <div className="w-full h-2 bg-muted/50 rounded-full overflow-hidden">
                   <div
-                    className="h-full bg-primary rounded-full transition-all duration-300"
-                    style={{ width: `${downloadProgress.percent}%` }}
-                  />
+                    className="h-full rounded-full transition-all duration-300 relative overflow-hidden"
+                    style={{
+                      width: `${downloadProgress.percent}%`,
+                      background: 'linear-gradient(90deg, var(--glow-cyan), var(--glow-purple))',
+                      boxShadow: '0 0 10px rgba(var(--glow-cyan-rgb), 0.5)',
+                    }}
+                  >
+                    <div
+                      className="absolute inset-0"
+                      style={{
+                        background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent)',
+                        animation: 'shimmer 1.5s ease-in-out infinite',
+                      }}
+                    />
+                  </div>
                 </div>
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">
@@ -333,7 +360,7 @@ export function VideoCard({
             <Button
               onClick={() => setDownloadProgress(null)}
               variant="outline"
-              className="w-full h-11"
+              className="w-full h-11 btn-glow"
             >
               重试
             </Button>
@@ -342,7 +369,7 @@ export function VideoCard({
           <Button
             onClick={handleDownload}
             disabled={!selectedFormat || isComplete}
-            className="w-full h-11"
+            className="w-full h-11 btn-glow font-heading tracking-wider"
             size="lg"
           >
             {isComplete ? (

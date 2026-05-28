@@ -3,7 +3,7 @@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Music } from "lucide-react";
-import { formatFileSize } from "@/lib/utils";
+import { cn, formatFileSize } from "@/lib/utils";
 import type { VideoFormat } from "@/lib/types";
 
 interface FormatSelectorProps {
@@ -33,7 +33,12 @@ export function FormatSelector({
             variant={isSelected ? "default" : "outline"}
             size="sm"
             onClick={() => onSelect(fmt.format_id)}
-            className="h-auto py-1.5 px-3 gap-1.5"
+            className={cn(
+              "h-auto py-1.5 px-3 gap-1.5 transition-all duration-300",
+              isSelected
+                ? "btn-glow font-heading"
+                : "glass-card hover:border-primary/40"
+            )}
           >
             {fmt.hasVideo ? (
               <span className="font-medium">{fmt.resolution}</span>
@@ -45,7 +50,10 @@ export function FormatSelector({
             )}
             <Badge
               variant={isSelected ? "secondary" : "outline"}
-              className="text-[10px] px-1 py-0"
+              className={cn(
+                "text-[10px] px-1 py-0",
+                isSelected && "border-primary/50"
+              )}
             >
               {fmt.ext}
             </Badge>

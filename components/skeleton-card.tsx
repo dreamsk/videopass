@@ -5,8 +5,16 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 export function SkeletonCard() {
   return (
-    <Card className="overflow-hidden">
-      <Skeleton className="w-full aspect-video" />
+    <Card className="overflow-hidden glass-card glow-border">
+      <div className="w-full aspect-video bg-muted/50 relative overflow-hidden animate-pulse">
+        <div
+          className="absolute inset-0"
+          style={{
+            background: 'linear-gradient(180deg, transparent 0%, rgba(var(--glow-cyan-rgb), 0.08) 50%, transparent 100%)',
+            animation: 'scan-line 2s ease-in-out infinite',
+          }}
+        />
+      </div>
       <CardContent className="p-4 space-y-3">
         <Skeleton className="h-6 w-3/4" />
         <Skeleton className="h-4 w-1/3" />

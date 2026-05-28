@@ -85,7 +85,7 @@ export function UrlInput({ onExtract, onBatchExtract, isLoading }: UrlInputProps
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           {isBatch && (
-            <Badge variant="secondary" className="text-xs">
+            <Badge variant="secondary" className="text-xs border-primary/30">
               批量模式（仅Bilibili）
             </Badge>
           )}
@@ -95,7 +95,7 @@ export function UrlInput({ onExtract, onBatchExtract, isLoading }: UrlInputProps
           size="sm"
           onClick={toggleBatch}
           disabled={isLoading}
-          className="h-8 gap-1.5 text-xs"
+          className="h-8 gap-1.5 text-xs text-muted-foreground hover:text-primary"
         >
           {isBatch ? (
             <>
@@ -120,7 +120,7 @@ export function UrlInput({ onExtract, onBatchExtract, isLoading }: UrlInputProps
               onKeyDown={handleKeyDown}
               onPaste={handlePaste}
               placeholder={"每行一个视频链接（粘贴多条链接自动分行）\nCtrl+Enter 开始提取"}
-              className="min-h-[120px] text-base resize-y pr-10"
+              className="min-h-[120px] text-base resize-y pr-10 glass-card input-glow transition-all duration-300"
               disabled={isLoading}
             />
             {batchText && (
@@ -138,7 +138,7 @@ export function UrlInput({ onExtract, onBatchExtract, isLoading }: UrlInputProps
           <Button
             onClick={handleExtract}
             disabled={isLoading || !batchText.trim()}
-            className="w-full h-11"
+            className="w-full h-11 btn-glow font-heading tracking-wider"
           >
             {isLoading ? (
               <Loader2 className="w-4 h-4 animate-spin mr-2" />
@@ -156,7 +156,7 @@ export function UrlInput({ onExtract, onBatchExtract, isLoading }: UrlInputProps
               onChange={(e) => setUrl(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="粘贴视频链接..."
-              className="h-12 text-base pr-24"
+              className="h-12 text-base pr-24 glass-card input-glow transition-all duration-300"
               disabled={isLoading}
             />
             {url && !platformInfo && (
@@ -173,7 +173,7 @@ export function UrlInput({ onExtract, onBatchExtract, isLoading }: UrlInputProps
             {platformInfo && (
               <Badge
                 variant="secondary"
-                className="absolute right-3 top-1/2 -translate-y-1/2 gap-1"
+                className="absolute right-3 top-1/2 -translate-y-1/2 gap-1 border-primary/30"
               >
                 {platformInfo.name}
                 <button
@@ -188,7 +188,7 @@ export function UrlInput({ onExtract, onBatchExtract, isLoading }: UrlInputProps
           <Button
             onClick={handleExtract}
             disabled={isLoading || !url.trim()}
-            className="h-12 px-6"
+            className="h-12 px-6 btn-glow font-heading tracking-wider"
           >
             {isLoading ? (
               <Loader2 className="w-4 h-4 animate-spin" />

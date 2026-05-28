@@ -160,100 +160,121 @@ export default function Home() {
   };
 
   return (
-    <main className="flex-1 flex flex-col items-center justify-start px-4 py-12 md:py-20">
-      <div className="w-full max-w-2xl space-y-8">
-        {/* Header */}
-        <div className="text-center space-y-2">
-          <div className="flex items-center justify-center gap-2">
-            <Video className="w-8 h-8 text-primary" />
-            <h1 className="text-3xl font-bold">VideoPass</h1>
-          </div>
-          <p className="text-muted-foreground">
-            粘贴视频链接，提取封面与视频文件
-          </p>
-          <PlatformLogos />
-        </div>
-
-        {/* URL Input */}
-        <UrlInput
-          onExtract={handleExtract}
-          onBatchExtract={handleBatchExtract}
-          isLoading={status === "loading"}
+    <>
+      {/* Background glow effects */}
+      <div className="fixed inset-0 pointer-events-none overflow-hidden z-0" aria-hidden="true">
+        <div
+          className="absolute -top-32 -left-32 w-96 h-96 rounded-full bg-glow-cyan opacity-30"
+          style={{ animation: 'pulse-glow 8s ease-in-out infinite, float-1 20s ease-in-out infinite' }}
         />
-
-        {/* Loading State */}
-        {status === "loading" && (
-          <div className="space-y-4">
-            <SkeletonCard />
-            {extracting && extracting.total > 1 && (
-              <p className="text-center text-sm text-muted-foreground">
-                正在提取 {extracting.current}/{extracting.total}...
-              </p>
-            )}
-          </div>
-        )}
-
-        {/* Result State */}
-        {status === "result" && videos.length > 0 && (
-          <div className="space-y-6">
-            {videos.map((entry, index) =>
-              "video" in entry ? (
-                <VideoCard
-                  key={entry.video.id + index}
-                  video={entry.video}
-                  sourceUrl={entry.sourceUrl}
-                  selectedFormat={entry.selectedFormat}
-                  onFormatChange={(id) => handleFormatChange(index, id)}
-                />
-              ) : (
-                <div
-                  key={entry.url + index}
-                  className="flex items-start gap-3 p-4 rounded-lg border border-destructive/50 bg-destructive/10"
-                >
-                  <AlertCircle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
-                  <div className="min-w-0">
-                    <p className="font-medium text-destructive">提取失败</p>
-                    <p className="text-sm text-muted-foreground mt-1 truncate">
-                      {entry.url}
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      {entry.error}
-                    </p>
-                  </div>
-                </div>
-              )
-            )}
-          </div>
-        )}
-
-        {/* Error State (single mode) */}
-        {status === "error" && error && (
-          <div className="flex items-start gap-3 p-4 rounded-lg border border-destructive/50 bg-destructive/10">
-            <AlertCircle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
-            <div>
-              <p className="font-medium text-destructive">提取失败</p>
-              <p className="text-sm text-muted-foreground mt-1">{error}</p>
-            </div>
-          </div>
-        )}
-
-        {/* History */}
-        {history.length > 0 && status !== "loading" && (
-          <HistoryList
-            entries={history}
-            onSelect={handleSelectHistory}
-            onRemove={handleRemoveHistory}
-            onClear={handleClearHistory}
-          />
-        )}
+        <div
+          className="absolute -bottom-32 -right-32 w-96 h-96 rounded-full bg-glow-purple opacity-25"
+          style={{ animation: 'pulse-glow 10s ease-in-out infinite 2s, float-2 25s ease-in-out infinite' }}
+        />
+        <div
+          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] rounded-full opacity-15"
+          style={{
+            background: 'radial-gradient(circle, rgba(var(--glow-cyan-rgb), 0.2) 0%, rgba(var(--glow-purple-rgb), 0.1) 50%, transparent 70%)',
+            animation: 'pulse-glow 12s ease-in-out infinite 4s',
+          }}
+        />
       </div>
 
-      {/* Footer */}
-      <footer className="mt-auto pt-12 pb-6 text-center text-xs text-muted-foreground">
-        <p>
-          Powered by yt-dlp · 支持 YouTube、Bilibili、TikTok 等 1700+ 平台
-        </p>
-      </footer>
-    </main>
+      <main className="relative z-10 flex-1 flex flex-col items-center justify-start px-4 py-12 md:py-20">
+        <div className="w-full max-w-2xl space-y-8">
+          {/* Header */}
+          <div className="text-center space-y-3">
+            <div className="flex items-center justify-center gap-3">
+              <Video className="w-9 h-9 text-primary icon-glow" />
+              <h1 className="text-4xl font-bold font-heading text-gradient">VideoPass</h1>
+            </div>
+            <p className="text-muted-foreground text-sm tracking-wide">
+              粘贴视频链接，提取封面与视频文件
+            </p>
+            <PlatformLogos />
+          </div>
+
+          {/* URL Input */}
+          <UrlInput
+            onExtract={handleExtract}
+            onBatchExtract={handleBatchExtract}
+            isLoading={status === "loading"}
+          />
+
+          {/* Loading State */}
+          {status === "loading" && (
+            <div className="space-y-4">
+              <SkeletonCard />
+              {extracting && extracting.total > 1 && (
+                <p className="text-center text-sm text-muted-foreground">
+                  正在提取 {extracting.current}/{extracting.total}...
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Result State */}
+          {status === "result" && videos.length > 0 && (
+            <div className="space-y-6">
+              {videos.map((entry, index) =>
+                "video" in entry ? (
+                  <VideoCard
+                    key={entry.video.id + index}
+                    video={entry.video}
+                    sourceUrl={entry.sourceUrl}
+                    selectedFormat={entry.selectedFormat}
+                    onFormatChange={(id) => handleFormatChange(index, id)}
+                  />
+                ) : (
+                  <div
+                    key={entry.url + index}
+                    className="flex items-start gap-3 p-4 rounded-lg border border-destructive/50 bg-destructive/10 glass-card"
+                  >
+                    <AlertCircle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
+                    <div className="min-w-0">
+                      <p className="font-medium text-destructive">提取失败</p>
+                      <p className="text-sm text-muted-foreground mt-1 truncate">
+                        {entry.url}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        {entry.error}
+                      </p>
+                    </div>
+                  </div>
+                )
+              )}
+            </div>
+          )}
+
+          {/* Error State (single mode) */}
+          {status === "error" && error && (
+            <div className="flex items-start gap-3 p-4 rounded-lg border border-destructive/50 bg-destructive/10 glass-card">
+              <AlertCircle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
+              <div>
+                <p className="font-medium text-destructive">提取失败</p>
+                <p className="text-sm text-muted-foreground mt-1">{error}</p>
+              </div>
+            </div>
+          )}
+
+          {/* History */}
+          {history.length > 0 && status !== "loading" && (
+            <HistoryList
+              entries={history}
+              onSelect={handleSelectHistory}
+              onRemove={handleRemoveHistory}
+              onClear={handleClearHistory}
+            />
+          )}
+        </div>
+
+        {/* Footer */}
+        <footer className="mt-auto pt-12 pb-6 text-center text-xs text-muted-foreground/60">
+          <p className="tracking-wider">
+            Powered by yt-dlp · 支持 YouTube、Bilibili、TikTok 等 1700+ 平台
+          </p>
+        </footer>
+      </main>
+    </>
   );
 }

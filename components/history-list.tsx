@@ -35,33 +35,33 @@ export function HistoryList({
     <div className="space-y-2">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-          <Clock className="w-3.5 h-3.5" />
-          <span>提取历史</span>
+          <Clock className="w-3.5 h-3.5 text-primary icon-glow" />
+          <span className="font-heading tracking-wider">提取历史</span>
         </div>
         <Button
           variant="ghost"
           size="sm"
           onClick={onClear}
-          className="h-7 gap-1 text-xs text-muted-foreground"
+          className="h-7 gap-1 text-xs text-muted-foreground hover:text-primary"
         >
           <Trash2 className="w-3 h-3" />
           清空
         </Button>
       </div>
 
-      <div className="border rounded-lg divide-y">
+      <div className="rounded-lg divide-y glass-card overflow-hidden">
         {entries.map((entry) => {
           const platformInfo = getPlatformInfo(entry.video.platform);
           return (
             <div
               key={entry.sourceUrl}
-              className="flex items-center gap-3 p-2.5 hover:bg-accent/50 cursor-pointer group"
+              className="flex items-center gap-3 p-2.5 hover:bg-primary/5 cursor-pointer group transition-all duration-300"
               onClick={() => onSelect(entry)}
             >
               <img
                 src={`/api/thumbnail?url=${encodeURIComponent(entry.video.thumbnail)}`}
                 alt=""
-                className="w-16 h-10 object-cover rounded shrink-0"
+                className="w-16 h-10 object-cover rounded shrink-0 ring-1 ring-border/50"
               />
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium truncate">
